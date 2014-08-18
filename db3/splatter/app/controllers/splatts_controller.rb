@@ -27,18 +27,6 @@ class SplattsController < ApplicationController
     end
   end
 
-  # PATCH/PUT /splatts/1
-  # PATCH/PUT /splatts/1.json
-  #def update
-  #  @splatt = Splatt.find(params[:id])
-  #
-  #  if @splatt.update(params[:splatt])
-  #    head :no_content
-  #  else
-  #    render json: @splatt.errors, status: :unprocessable_entity
-  #  end
-  #end
-
   # DELETE /splatts/1
   # DELETE /splatts/1.json
   def destroy
