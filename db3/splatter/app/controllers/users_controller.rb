@@ -50,8 +50,41 @@ class UsersController < ApplicationController
   
   #GET /users/splatts-feed/1
   def splatts_feed
-	@feed = Splatt.find_by_sql("SELECT splatts.id, splatts.body, splatts.created_at FROM splatts JOIN follows ON follows.followed_id=splatts.user_id WHERE follows.follower_id=#{params[:id]} ORDER BY splatts.created_at DESC")
-	render json: @feed
+	map = "function()
+	{
+		if(this.splatts) 
+		{
+			emit('feed', {'list': this.splatts})
+		}
+	}"
+	
+	reduce = "function(key, values) 
+	{
+		var myfeed = {'list': []};
+		values.forEach(function(v) 
+		{
+			myfeed.list = myfeed.list.concat(v.list);
+		});
+		return myfeed
+	}"
+	
+	finalise = "function(key, val) 
+				{
+					var mylist = val.list;
+					if(mylist) 
+					{
+						mylist.sort(function(a, b) 
+						{
+							return b.created_at - a.created_at
+						});
+					}
+						return {'list': mylist};
+				}"
+  
+	user = User.find(params[:id])
+	result = User.in(id: user.follow_ids).map_reduce(map, reduce).out(inline: true).finalize(finalise)
+	render json: result.entries[0][:value][:list]
+	#render json: @feed
   end
   
   # Splatts
@@ -69,15 +102,15 @@ class UsersController < ApplicationController
   #Show Followers
   def show_followers
 	  @user = User.find(params[:id])
-	  render json: @user.followed_by
+	  render json: @user.followers
   end
   
   #Add Follows
   def add_follows
 	  @user = User.find(params[:id])
-	  @follow = User.find(params[:follows_id])
+	  @follows = User.find(params[:follows_id])
 	  
-	  if @user.follows << @follow
+	  if @user.follows << @follows and @follows.followers << @user
       head :no_content
     else
       render json: @user.errors, status: :unprocessable_entity
@@ -89,7 +122,7 @@ class UsersController < ApplicationController
 	  @user = User.find(params[:id])
 	  @follow = User.find(params[:follows_id])
 	  
-	  if @user.follows.delete(@follow)
+	  if @user.follows.delete(@follow) and @follow.followers.delete(@user)
       head :no_content
     else
       render json: @user.errors, status: :unprocessable_entity
